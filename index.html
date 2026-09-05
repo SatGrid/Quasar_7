@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUASAR&#8209;7 &mdash; Scientific Calculator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231D2024'/%3E%3Ccircle cx='32' cy='32' r='17' fill='none' stroke='%23AEBB9C' stroke-width='3' stroke-dasharray='6 5'/%3E%3Ccircle cx='32' cy='9' r='3.2' fill='%23AEBB9C'/%3E%3Ccircle cx='32' cy='32' r='7' fill='%23D2854A'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --case: #23262B;
+    --case-edge: #14161A;
+    --panel: #2C3036;
+    --screen-bg: #AEBB9C;
+    --screen-bg-dark: #9DAB89;
+    --screen-text: #1D2818;
+    --key: #34383E;
+    --key-hi: #40454C;
+    --key-text: #ECE9E1;
+    --key-shadow: #101215;
+    --fn: #4B5C63;
+    --fn-hi: #586B73;
+    --op: #C0743A;
+    --op-hi: #D2854A;
+    --eq: #79915E;
+    --eq-hi: #89A46C;
+    --clear: #96524B;
+    --clear-hi: #A7615A;
+    --active: #D2AA4A;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: radial-gradient(circle at 50% 0%, #34383f 0%, #17181b 70%);
+    font-family:'Manrope', sans-serif;
+    padding: 24px;
+  }
+
+  .calc{
+    width: 400px;
+    max-width: 100%;
+    background: linear-gradient(160deg, var(--panel), var(--case) 40%);
+    border-radius: 22px;
+    padding: 18px 16px 22px;
+    box-shadow:
+      0 0 0 1px var(--case-edge),
+      0 20px 50px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .brand{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding: 2px 6px 12px;
+    color:#8A8F97;
+  }
+  .brand .name{
+    font-size:13px;
+    letter-spacing:0.14em;
+    font-weight:800;
+    color:#C7CBD1;
+  }
+  .brand .name .dot{ color: var(--op-hi); }
+  .brand .model{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color:#6C7178;
+  }
+
+  .screen-housing{
+    background: #171A1D;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+    margin-bottom: 14px;
+  }
+
+  .screen{
+    background: linear-gradient(175deg, var(--screen-bg), var(--screen-bg-dark));
+    border-radius: 6px;
+    padding: 14px 14px 10px;
+    min-height: 92px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap: 6px;
+    position:relative;
+    overflow:hidden;
+  }
+  .screen::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.05) 0px,
+      rgba(0,0,0,0.05) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events:none;
+  }
+
+  .status-row{
+    display:flex;
+    gap:9px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    font-weight:700;
+    color: rgba(29,40,24,0.45);
+    letter-spacing: 0.03em;
+    z-index:1;
+    flex-wrap: wrap;
+  }
+  .status-row span{ opacity:0.32; transition: opacity .15s; }
+  .status-row span.on{ opacity:1; }
+
+  .expr{
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    color: rgba(29,40,24,0.65);
+    min-height: 18px;
+    text-align:right;
+    word-break: break-all;
+    z-index:1;
+  }
+
+  .result{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight:500;
+    color: var(--screen-text);
+    text-align:right;
+    line-height:1.1;
+    z-index:1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pad-sci{
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    margin-bottom: 8px;
+  }
+
+  .pad-num{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  button{
+    border:none;
+    border-radius: 10px;
+    font-family:'Manrope', sans-serif;
+    font-weight:600;
+    font-size: 14px;
+    color: var(--key-text);
+    background: var(--key);
+    padding: 12px 0;
+    cursor:pointer;
+    box-shadow:
+      0 2px 0 var(--key-shadow),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    transition: transform .04s ease, box-shadow .04s ease, background .15s;
+    user-select:none;
+  }
+  button:active{
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--key-shadow), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  button:hover{ background: var(--key-hi); }
+
+  .pad-sci button{ font-size:12.5px; padding: 10px 0; background: var(--fn); }
+  .pad-sci button:hover{ background: var(--fn-hi); }
+
+  button.op{ background: var(--op); font-size:17px; }
+  button.op:hover{ background: var(--op-hi); }
+
+  button.eq{ background: var(--eq); font-size:17px; }
+  button.eq:hover{ background: var(--eq-hi); }
+
+  button.clear{ background: var(--clear) !important; }
+  button.clear:hover{ background: var(--clear-hi) !important; }
+
+  button.toggle.active{
+    background: var(--active) !important;
+    color: #2A2210;
+    box-shadow: 0 2px 0 #8a6d1f, inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+
+  button.wide{ grid-column: span 2; }
+
+  @media (max-width:400px){
+    .pad-num button{ font-size:13px; padding:11px 0; }
+    .pad-sci button{ font-size:11px; padding: 9px 0; }
+    .result{ font-size:26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="calc">
+  <div class="brand">
+    <span class="name">QUASAR<span class="dot">&#8209;</span>7</span>
+    <span class="model">SCIENTIFIC</span>
+  </div>
+
+  <div class="screen-housing">
+    <div class="screen">
+      <div class="status-row">
+        <span id="ind-2nd">2ND</span>
+        <span id="ind-hyp">HYP</span>
+        <span id="ind-deg">DEG</span>
+        <span id="ind-rad">RAD</span>
+        <span id="ind-grad">GRAD</span>
+        <span id="ind-m">M</span>
+      </div>
+      <div class="expr" id="expr"></div>
+      <div class="result" id="result">0</div>
+    </div>
+  </div>
+
+  <!-- Scientific function grid -->
+  <div class="pad-sci">
+    <button class="toggle" id="btn-2nd" onclick="toggleSecond()">2nd</button>
+    <button class="toggle" id="btn-drg" onclick="cycleAngleMode()">Deg</button>
+    <button class="toggle" id="btn-hyp" onclick="toggleHyp()">hyp</button>
+    <button onclick="memClear()">MC</button>
+    <button onclick="memRecall()">MR</button>
+
+    <button onclick="memAdd()">M+</button>
+    <button onclick="memSub()">M&minus;</button>
+    <button id="btn-sin" onclick="applyTrig('sin')">sin</button>
+    <button id="btn-cos" onclick="applyTrig('cos')">cos</button>
+    <button id="btn-tan" onclick="applyTrig('tan')">tan</button>
+
+    <button id="btn-ln" onclick="applyLnLog('ln')">ln</button>
+    <button id="btn-log" onclick="applyLnLog('log')">log</button>
+    <button onclick="inputVal('sqrt(')">&#8730;x</button>
+    <button onclick="inputVal('^2')">x&sup2;</button>
+    <button onclick="inputVal('^')">x^y</button>
+
+    <button onclick="inputVal('(')">(</button>
+    <button onclick="inputVal(')')">)</button>
+    <button onclick="inputVal('!')">n!</button>
+    <button onclick="inputVal('pi')">&pi;</button>
+    <button onclick="inputVal('e')">e</button>
+
+    <button onclick="inputVal('^3')">x&sup3;</button>
+    <button onclick="inputVal('cbrt(')">&#8731;x</button>
+    <button onclick="wrapBinary('nPr')">nPr</button>
+    <button onclick="wrapBinary('nCr')">nCr</button>
+    <button onclick="inputVal(' mod ')">mod</button>
+
+    <button onclick="inputVal('E')">EE</button>
+    <button onclick="insertRand()">rand</button>
+    <button onclick="wrapWhole('1/(',')')">1/x</button>
+    <button onclick="applyPercent()">%</button>
+    <button onclick="insertAns()">Ans</button>
+  </div>
+
+  <!-- Numeric / operator grid -->
+  <div class="pad-num">
+    <button class="clear" onclick="clearAll()">AC</button>
+    <button class="clear" onclick="backspace()">&larr;</button>
+    <button onclick="toggleSign()">&plusmn;</button>
+    <button class="op" onclick="inputVal('/')">&divide;</button>
+
+    <button onclick="inputVal('7')">7</button>
+    <button onclick="inputVal('8')">8</button>
+    <button onclick="inputVal('9')">9</button>
+    <button class="op" onclick="inputVal('*')">&times;</button>
+
+    <button onclick="inputVal('4')">4</button>
+    <button onclick="inputVal('5')">5</button>
+    <button onclick="inputVal('6')">6</button>
+    <button class="op" onclick="inputVal('-')">&minus;</button>
+
+    <button onclick="inputVal('1')">1</button>
+    <button onclick="inputVal('2')">2</button>
+    <button onclick="inputVal('3')">3</button>
+    <button class="op" onclick="inputVal('+')">+</button>
+
+    <button class="wide" onclick="inputVal('0')">0</button>
+    <button onclick="inputVal('.')">.</button>
+    <button class="eq" onclick="calculate()">=</button>
+  </div>
+</div>
+
+<script>
+let expr = "";
+let secondActive = false;
+let hypActive = false;
+let angleMode = 'deg'; // 'deg' | 'rad' | 'grad'
+let memory = 0;
+let lastAnswer = 0;
+
+const exprEl = document.getElementById('expr');
+const resultEl = document.getElementById('result');
+const ind2nd = document.getElementById('ind-2nd');
+const indHyp = document.getElementById('ind-hyp');
+const indDeg = document.getElementById('ind-deg');
+const indRad = document.getElementById('ind-rad');
+const indGrad = document.getElementById('ind-grad');
+const indM = document.getElementById('ind-m');
+const btn2nd = document.getElementById('btn-2nd');
+const btnDrg = document.getElementById('btn-drg');
+const btnHyp = document.getElementById('btn-hyp');
+
+const btnSin = document.getElementById('btn-sin');
+const btnCos = document.getElementById('btn-cos');
+const btnTan = document.getElementById('btn-tan');
+const btnLn = document.getElementById('btn-ln');
+const btnLog = document.getElementById('btn-log');
+
+function updateScreen(){
+  exprEl.textContent = expr
+    .replace(/\*/g,'\u00d7')
+    .replace(/\//g,'\u00f7')
+    .replace(/pi/g,'\u03c0')
+    .replace(/ mod /g, ' mod ');
+}
+
+function toggleSecond(){
+  secondActive = !secondActive;
+  btn2nd.classList.toggle('active', secondActive);
+  ind2nd.classList.toggle('on', secondActive);
+  refreshFnLabels();
+}
+
+function toggleHyp(){
+  hypActive = !hypActive;
+  btnHyp.classList.toggle('active', hypActive);
+  indHyp.classList.toggle('on', hypActive);
+  refreshFnLabels();
+}
+
+function refreshFnLabels(){
+  if(hypActive){
+    btnSin.textContent = secondActive ? 'sinh\u207b\u00b9' : 'sinh';
+    btnCos.textContent = secondActive ? 'cosh\u207b\u00b9' : 'cosh';
+    btnTan.textContent = secondActive ? 'tanh\u207b\u00b9' : 'tanh';
+  } else {
+    btnSin.textContent = secondActive ? 'sin\u207b\u00b9' : 'sin';
+    btnCos.textContent = secondActive ? 'cos\u207b\u00b9' : 'cos';
+    btnTan.textContent = secondActive ? 'tan\u207b\u00b9' : 'tan';
+  }
+  btnLn.textContent  = secondActive ? 'e\u02e3' : 'ln';
+  btnLog.textContent = secondActive ? '10\u02e3' : 'log';
+}
+
+function cycleAngleMode(){
+  angleMode = angleMode === 'deg' ? 'rad' : angleMode === 'rad' ? 'grad' : 'deg';
+  const btn = document.getElementById('btn-drg');
+  btn.textContent = angleMode === 'deg' ? 'Deg' : angleMode === 'rad' ? 'Rad' : 'Grad';
+  btn.classList.toggle('active', angleMode !== 'deg');
+  indDeg.classList.toggle('on', angleMode === 'deg');
+  indRad.classList.toggle('on', angleMode === 'rad');
+  indGrad.classList.toggle('on', angleMode === 'grad');
+}
+
+function inputVal(v){
+  expr += v;
+  updateScreen();
+}
+
+function clearAll(){
+  expr = "";
+  resultEl.textContent = "0";
+  updateScreen();
+}
+
+function backspace(){
+  expr = expr.slice(0, -1);
+  updateScreen();
+}
+
+function toggleSign(){
+  const match = expr.match(/(-?\d+\.?\d*)$/);
+  if(match){
+    const num = match[1];
+    const start = expr.length - num.length;
+    const negated = num.startsWith('-') ? num.slice(1) : '-' + num;
+    expr = expr.slice(0, start) + negated;
+  } else if(expr.length){
+    expr = '-(' + expr + ')';
+  }
+  updateScreen();
+}
+
+function applyTrig(base){
+  let fn = base;
+  if(hypActive && secondActive) fn = 'a' + base + 'h';
+  else if(hypActive) fn = base + 'h';
+  else if(secondActive) fn = 'a' + base;
+  expr += fn + '(';
+  updateScreen();
+}
+
+function applyLnLog(which){
+  if(which === 'ln'){
+    expr += secondActive ? 'exp(' : 'ln(';
+  } else {
+    expr += secondActive ? '10^(' : 'log(';
+  }
+  updateScreen();
+}
+
+// wrap the whole current expression, e.g. for 1/x -> 1/(expr)
+function wrapWhole(prefix, suffix){
+  expr = prefix + expr + suffix;
+  updateScreen();
+}
+
+// wrap current expression as the first arg of a two-arg function: nPr(expr, ...
+function wrapBinary(name){
+  if(!expr) return;
+  expr = name + '(' + expr + ',';
+  updateScreen();
+}
+
+function applyPercent(){
+  const match = expr.match(/(-?\d+\.?\d*)$/);
+  if(match){
+    const num = match[1];
+    const start = expr.length - num.length;
+    expr = expr.slice(0, start) + '(' + num + '/100)';
+  } else if(expr.length){
+    expr = '(' + expr + '/100)';
+  }
+  updateScreen();
+}
+
+function insertRand(){
+  expr += Math.random().toFixed(6);
+  updateScreen();
+}
+
+function insertAns(){
+  expr += trimNum(lastAnswer);
+  updateScreen();
+}
+
+function memClear(){ memory = 0; indM.classList.remove('on'); }
+function memRecall(){ expr += String(trimNum(memory)); updateScreen(); }
+function memAdd(){
+  const val = safeEval(expr);
+  if(val !== null){ memory += val; indM.classList.add('on'); }
+}
+function memSub(){
+  const val = safeEval(expr);
+  if(val !== null){ memory -= val; indM.classList.add('on'); }
+}
+
+function trimNum(n){
+  if(Object.is(n, -0)) n = 0;
+  return parseFloat(n.toPrecision(12));
+}
+
+function factorial(n){
+  if(n < 0) return NaN;
+  if(Math.floor(n) !== n) return gamma(n + 1);
+  let r = 1;
+  for(let i=2;i<=n;i++) r *= i;
+  return r;
+}
+
+function gamma(x){
+  const g = 7;
+  const p = [0.99999999999980993,676.5203681218851,-1259.1392167224028,
+    771.32342877765313,-176.61502916214059,12.507343278686905,
+    -0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x < 0.5){
+    return Math.PI / (Math.sin(Math.PI*x) * gamma(1-x));
+  }
+  x -= 1;
+  let a = p[0];
+  const t = x + g + 0.5;
+  for(let i=1;i<g+2;i++) a += p[i]/(x+i);
+  return Math.sqrt(2*Math.PI) * Math.pow(t, x+0.5) * Math.exp(-t) * a;
+}
+
+function nPr(n, r){ return factorial(n) / factorial(n - r); }
+function nCr(n, r){ return factorial(n) / (factorial(r) * factorial(n - r)); }
+
+function preprocess(str){
+  let s = str;
+
+  // auto-balance any unclosed parentheses
+  const opens = (s.match(/\(/g) || []).length;
+  const closes = (s.match(/\)/g) || []).length;
+  if(opens > closes) s += ')'.repeat(opens - closes);
+
+  s = s.replace(/pi/g, '(Math.PI)');
+  s = s.replace(/(?<![a-zA-Z0-9])e(?![a-zA-Z0-9(])/g, '(Math.E)');
+
+  // guard: only match a function name when not preceded by a letter/underscore,
+  // so replacing e.g. "sinh(" doesn't also clobber inside an already-replaced "__asinh("
+  const G = '(?<![a-zA-Z_])';
+  s = s.replace(new RegExp(G+'asinh\\(','g'), '__asinh(');
+  s = s.replace(new RegExp(G+'acosh\\(','g'), '__acosh(');
+  s = s.replace(new RegExp(G+'atanh\\(','g'), '__atanh(');
+  s = s.replace(new RegExp(G+'sinh\\(','g'),  '__sinh(');
+  s = s.replace(new RegExp(G+'cosh\\(','g'),  '__cosh(');
+  s = s.replace(new RegExp(G+'tanh\\(','g'),  '__tanh(');
+  s = s.replace(new RegExp(G+'asin\\(','g'),  '__asinA(');
+  s = s.replace(new RegExp(G+'acos\\(','g'),  '__acosA(');
+  s = s.replace(new RegExp(G+'atan\\(','g'),  '__atanA(');
+  s = s.replace(new RegExp(G+'sin\\(','g'),   '__sinA(');
+  s = s.replace(new RegExp(G+'cos\\(','g'),   '__cosA(');
+  s = s.replace(new RegExp(G+'tan\\(','g'),   '__tanA(');
+
+  s = s.replace(new RegExp(G+'log\\(','g'),  '__log10(');
+  s = s.replace(new RegExp(G+'ln\\(','g'),   '__ln(');
+  s = s.replace(new RegExp(G+'sqrt\\(','g'), '__sqrt(');
+  s = s.replace(new RegExp(G+'cbrt\\(','g'), '__cbrt(');
+  s = s.replace(new RegExp(G+'exp\\(','g'),  '__exp(');
+  s = s.replace(/10\^\(/g, '__pow10(');
+  s = s.replace(new RegExp(G+'nPr\\(','g'), '__nPr(');
+  s = s.replace(new RegExp(G+'nCr\\(','g'), '__nCr(');
+
+  s = s.replace(/\^/g, '**');
+  s = s.replace(/mod/g, '%');
+
+  // factorial: "5!" or "(...)!" -> __fact(...)
+  let prev;
+  do{
+    prev = s;
+    s = s.replace(/(\d+(\.\d+)?)!/g, '__fact($1)');
+    s = s.replace(/\(([^()]*)\)!/g, '__fact($1)');
+  } while(s !== prev);
+
+  return s;
+}
+
+function safeEval(str){
+  if(!str.trim()) return null;
+  try{
+    const factor = angleMode === 'deg' ? Math.PI/180 : angleMode === 'grad' ? Math.PI/200 : 1;
+    const __sinA = (x) => Math.sin(x*factor);
+    const __cosA = (x) => Math.cos(x*factor);
+    const __tanA = (x) => Math.tan(x*factor);
+    const __asinA = (x) => Math.asin(x)/factor;
+    const __acosA = (x) => Math.acos(x)/factor;
+    const __atanA = (x) => Math.atan(x)/factor;
+    const __sinh = Math.sinh, __cosh = Math.cosh, __tanh = Math.tanh;
+    const __asinh = Math.asinh, __acosh = Math.acosh, __atanh = Math.atanh;
+    const __sqrt = Math.sqrt, __cbrt = Math.cbrt, __exp = Math.exp;
+    const __ln = Math.log, __log10 = Math.log10;
+    const __pow10 = (x) => Math.pow(10, x);
+    const __fact = (n) => factorial(n);
+    const __nPr = nPr, __nCr = nCr;
+
+    const processed = preprocess(str);
+    const val = Function(
+      '__sinA','__cosA','__tanA','__asinA','__acosA','__atanA',
+      '__sinh','__cosh','__tanh','__asinh','__acosh','__atanh',
+      '__sqrt','__cbrt','__exp','__ln','__log10','__pow10','__fact','__nPr','__nCr','Math',
+      `"use strict"; return (${processed});`
+    )(
+      __sinA,__cosA,__tanA,__asinA,__acosA,__atanA,
+      __sinh,__cosh,__tanh,__asinh,__acosh,__atanh,
+      __sqrt,__cbrt,__exp,__ln,__log10,__pow10,__fact,__nPr,__nCr,Math
+    );
+    if(typeof val !== 'number' || !isFinite(val)) return null;
+    return val;
+  } catch(e){
+    return null;
+  }
+}
+
+function calculate(){
+  const val = safeEval(expr);
+  if(val === null){
+    resultEl.textContent = "Error";
+    return;
+  }
+  const display = trimNum(val);
+  lastAnswer = display;
+  resultEl.textContent = String(display);
+  expr = String(display);
+  updateScreen();
+}
+
+// keyboard support
+window.addEventListener('keydown', (e) => {
+  const k = e.key;
+  if(/[0-9.+\-*/()]/.test(k)){ inputVal(k); e.preventDefault(); }
+  else if(k === 'Enter' || k === '='){ calculate(); e.preventDefault(); }
+  else if(k === 'Backspace'){ backspace(); e.preventDefault(); }
+  else if(k === 'Escape'){ clearAll(); e.preventDefault(); }
+  else if(k === '^'){ inputVal('^'); e.preventDefault(); }
+  else if(k === '%'){ applyPercent(); e.preventDefault(); }
+  else if(k === '!'){ inputVal('!'); e.preventDefault(); }
+});
+
+refreshFnLabels();
+updateScreen();
+</script>
+
+</body>
+</html>
